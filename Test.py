@@ -13,10 +13,15 @@ then it will start waiting connections
 """
 import sys
 import time
-import datetime
+from datetime import datetime
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 import json
+import re
+from dateutil import parser
+from dateutil.tz import tzlocal
+from collections import OrderedDict
+from pandas.io.json import json_normalize
 
 def insertTimeCollection(client):
     dbh = client["local"]
@@ -39,6 +44,22 @@ def insertUser(client):
                            'password': '',
                            'sessions': [1]})
     
+def createUserPropsDict():
+    userPropsArr = []
+    userPropsArr.append(("userName",sys.argv[1])) 
+    
+    startTime = datetime.now()
+    userPropsArr.append(("sessionStart", startTime))
+    
+    local_tz_name = datetime.now(tzlocal()).tzname()
+    userPropsArr.append(("timeZoneName", local_tz_name))
+    
+    userPropsArr.append(("sessionID", sys.argv[1] + str(startTime)))
+    
+    userPropsArr.append(("relativeTime", 0))
+    
+    return OrderedDict(userPropsArr)
+    
 def main(client):
     #insertTimeCollection()
     #insertUser(client)
@@ -60,14 +81,41 @@ if __name__ == "__main__":
     #print sensorMessage
     dbh = client["local"]
     collection = dbh["sensor"]
-    dataDict = {}
-    dataDict["timeStamp"] = "30.12.2015 14:06:20.2412"
-    dataDict["leftPos"] = {"x":"-0,228793755914194","y":"11,5027813555582","z":"60,912982163767"}
     
-    data = data.replace('{"tobiiEyeTracker":', '')
-    data = data[:-1]
+    omitBeginLen = len('{"tobiiEyeTracker":') 
+    data = data[omitBeginLen:-1]
+    
     print data
-    collection.insert_one(json.loads(data))
+    print "##################################"
+    data = re.sub(r'\"(\-??\d+),(\d+)\"', r'\1.\2', data) # "-16,7315728269386" -> -16.7315728269386
+    
+    print data
+    print "##################################"
+    
+    jsonData = json.loads(data, object_pairs_hook=OrderedDict)
+    print jsonData
+    print "##################################"
+        
+    dateTime = jsonData["timeStamp"]
+    
+    try:
+        parsedDT = parser.parse(dateTime)
+        print parsedDT
+    except ValueError, e:
+        print '"%s" is an invalid date' % dateTime
+    
+    jsonData["timeStamp"] = parsedDT
+    
+    userPropsDict = createUserPropsDict()
+    
+    diff = parsedDT - userPropsDict["sessionStart"]
+    
+    userPropsDict["relativeTime"] = diff.total_seconds()
+    
+    userPropsDict.update(jsonData)
+    
+    collection.insert_one(userPropsDict)
+    
     #print double("-0,228793755914194")
 #from pymongo import MongoClient
 #import time
