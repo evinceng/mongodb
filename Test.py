@@ -21,7 +21,7 @@ import re
 from dateutil import parser
 from dateutil.tz import tzlocal
 from collections import OrderedDict
-from pandas.io.json import json_normalize
+import flattenDict as ft
 
 def insertTimeCollection(client):
     dbh = client["local"]
@@ -95,7 +95,11 @@ if __name__ == "__main__":
     jsonData = json.loads(data, object_pairs_hook=OrderedDict)
     print jsonData
     print "##################################"
-        
+    
+    jsonData = ft.flatten_dict(jsonData)
+    
+    print jsonData
+    
     dateTime = jsonData["timeStamp"]
     
     try:
