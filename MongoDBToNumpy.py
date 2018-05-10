@@ -56,7 +56,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     dbh = client["mediaExposureTry"]
-    collection = dbh["tobii"]
+    collection = dbh["eyesRolling"]
     #insertDocs()
     projection = {
             "_id": 0,
